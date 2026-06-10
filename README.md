@@ -22,9 +22,15 @@ Run `install.ps1` from the repo root in PowerShell:
 .\install.ps1
 ```
 
-This creates a directory junction from the game's
-`Binaries\Win64\ue4ss\Mods\DragonwildsHUD` to this repo (so edits here take effect immediately)
-and registers the mod in `mods.txt`.
+This auto-detects your Steam install of RSDragonwilds, creates a directory junction from the
+game's `Binaries\Win64\ue4ss\Mods\DragonwildsHUD` to this repo (so edits here take effect
+immediately), and registers the mod in `mods.txt`.
+
+If the game can't be found automatically (e.g. a non-Steam install), pass its path explicitly:
+
+```powershell
+.\install.ps1 -GamePath "C:\Program Files (x86)\Steam\steamapps\common\RSDragonwilds\RSDragonwilds"
+```
 
 Launch the game and check `UE4SS.log` for `[DragonwildsHUD] Loaded. F9 = toggle.` to confirm
 the mod loaded successfully.
