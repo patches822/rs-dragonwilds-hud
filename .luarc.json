@@ -1,0 +1,27 @@
+{
+  "$schema": "https://raw.githubusercontent.com/sumneko/vscode-lua/master/setting/schema.json",
+  "diagnostics": {
+    "unusedLocalExclude": ["_*"],
+    "globals": [
+      "Key",
+      "RegisterKeyBind",
+      "RegisterHook",
+      "RegisterBeginPlayPostHook",
+      "RegisterLoadMapPostHook",
+      "RegisterConsoleCommandHandler",
+      "RegisterCustomEvent",
+      "ExecuteInGameThread",
+      "NotifyOnNewObject",
+      "FindFirstOf",
+      "FindAllOf",
+      "StaticFindObject",
+      "StaticConstructObject",
+      "ForEachUObject",
+      "LoadAsset",
+      "ModRef"
+    ]
+  },
+  "runtime": {
+    "version": "Lua 5.4"
+  }
+}
