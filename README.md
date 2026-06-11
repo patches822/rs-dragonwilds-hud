@@ -13,6 +13,12 @@ toggleable HUD overlay showing your skill levels (icon + level) without opening 
 ## Requirements
 
 - [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) installed for RuneScape: Dragonwilds.
+- A recent UE4SS **experimental** build (from the
+  [`experimental-latest`](https://github.com/UE4SS-RE/RE-UE4SS/releases/tag/experimental-latest)
+  release). Older UE4SS builds (e.g. ~September 2025 and earlier) crash the game with an access
+  violation inside `UE4SS.dll` the first time a UMG `TextBlock`'s `SetText` is called — which
+  happens when this mod's panel is first built. If F9 crashes your game, update UE4SS via the
+  link above.
 
 ## Installation
 

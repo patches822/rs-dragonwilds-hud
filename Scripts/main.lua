@@ -1,8 +1,8 @@
-local UEHelpers = require("UEHelpers")
-local Config    = require("config")
-local Skills    = require("skills")
+local UEHelpers         = require("UEHelpers")
+local Config            = require("config")
+local Skills            = require("skills")
 
-local visible = false
+local visible           = false
 local refreshLoopActive = false
 
 local function log(msg)
@@ -73,8 +73,10 @@ local function ensurePanel()
     local border = StaticConstructObject(border_cls, canvas, FName("DragonwildsHUDBorder"))
     border:SetBrushColor(Config.BackgroundColor)
     border:SetPadding({
-        Left = Config.PanelPadding, Top = Config.PanelPadding,
-        Right = Config.PanelPadding, Bottom = Config.PanelPadding,
+        Left = Config.PanelPadding,
+        Top = Config.PanelPadding,
+        Right = Config.PanelPadding,
+        Bottom = Config.PanelPadding,
     })
 
     local vbox = StaticConstructObject(vertical_box_cls, border, FName("DragonwildsHUDVBox"))
@@ -84,8 +86,10 @@ local function ensurePanel()
     local grid = StaticConstructObject(grid_cls, vbox, FName("DragonwildsHUDGrid"))
     vbox:AddChildToVerticalBox(grid)
     grid.SlotPadding = {
-        Left = Config.CellPadding, Top = Config.CellPadding,
-        Right = Config.CellPadding, Bottom = Config.CellPadding,
+        Left = Config.CellPadding,
+        Top = Config.CellPadding,
+        Right = Config.CellPadding,
+        Bottom = Config.CellPadding,
     }
 
     local cells = {}
@@ -118,6 +122,7 @@ local function ensurePanel()
         levelText.Font.Size = Config.FontSize - 2
         levelText:SetText(FText(tostring(skill.level)))
         levelText:SetColorAndOpacity({ SpecifiedColor = Config.TextColor, ColorUseRule = 0 })
+
         local levelSlot = hbox:AddChildToHorizontalBox(levelText)
         levelSlot:SetVerticalAlignment(VAlign_Center)
         levelSlot:SetPadding({ Left = Config.CellPadding, Top = 0, Right = 0, Bottom = 0 })
@@ -149,7 +154,6 @@ local function ensurePanel()
     panelBorder = border
     panelCells = cells
     panelTotalText = total
-    log("ensurePanel: panel created")
     return true
 end
 
