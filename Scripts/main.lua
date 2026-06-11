@@ -26,6 +26,15 @@ local function isValid(o)
     return o and o.IsValid and o:IsValid()
 end
 
+-- Color a skill's level text gold once it's maxed (Config.MaxLevel), white otherwise.
+local function levelTextColor(level)
+    local n = tonumber(level)
+    if n and n >= Config.MaxLevel then
+        return Config.MaxLevelColor
+    end
+    return Config.TextColor
+end
+
 local function setWidgetText(widget, text, label)
     if not isValid(widget) then return end
     local ok, err = pcall(function()
@@ -142,7 +151,7 @@ local function ensurePanel()
         local levelText = StaticConstructObject(text_block_cls, hbox, FName("DragonwildsHUDCell" .. i .. "Level"))
         levelText.Font.Size = Config.FontSize - 2
         levelText:SetText(FText(tostring(skill.level)))
-        levelText:SetColorAndOpacity({ SpecifiedColor = Config.TextColor, ColorUseRule = 0 })
+        levelText:SetColorAndOpacity({ SpecifiedColor = levelTextColor(skill.level), ColorUseRule = 0 })
 
         local levelSlot = hbox:AddChildToHorizontalBox(levelText)
         levelSlot:SetVerticalAlignment(VAlign_Center)
@@ -150,7 +159,13 @@ local function ensurePanel()
 
         grid:AddChildToUniformGrid(cellBg, row, col)
 
-        cells[i] = { name = skill.name, levelText = levelText }
+        cells[i] = {
+            name = skill.name,
+            levelText = levelText,
+            bg = cellBg,
+            lastLevel = tonumber(skill.level),
+            lastDisplayed = skill.level,
+        }
     end
 
     -- Total level footer.
@@ -187,6 +202,20 @@ local function setPanelVisible(show)
     end
 end
 
+-- Briefly tint a cell's background to highlight a level-up, then revert
+-- it back to the normal cell background after a short delay.
+local function flashCell(cellBg)
+    if not isValid(cellBg) then return end
+    pcall(function() cellBg:SetBrushColor(Config.LevelUpFlashColor) end)
+    if not LoopAsync then return end
+    LoopAsync(Config.LevelUpFlashDurationMs, function()
+        if isValid(cellBg) then
+            pcall(function() cellBg:SetBrushColor(Config.CellBackground) end)
+        end
+        return true
+    end)
+end
+
 local function updatePanelData()
     if not panelCells then return end
 
@@ -213,12 +242,22 @@ local function updatePanelData()
     local incomplete = false
     for i, skill in ipairs(skillsList) do
         local cell = panelCells[i]
-        if cell then
+        if cell and cell.lastDisplayed ~= skill.level then
             setWidgetText(cell.levelText, tostring(skill.level), cell.name)
+            if isValid(cell.levelText) then
+                pcall(function()
+                    cell.levelText:SetColorAndOpacity({ SpecifiedColor = levelTextColor(skill.level), ColorUseRule = 0 })
+                end)
+            end
+            cell.lastDisplayed = skill.level
         end
         local n = tonumber(skill.level)
         if n then
             total = total + n
+            if cell and cell.lastLevel and n > cell.lastLevel then
+                flashCell(cell.bg)
+            end
+            if cell then cell.lastLevel = n end
         else
             incomplete = true
         end

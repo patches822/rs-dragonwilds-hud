@@ -21,4 +21,12 @@ Config.CellBackground    = { R = 1.0, G = 1.0, B = 1.0, A = 0.08 }
 -- How often to refresh skill levels while the panel is visible (ms).
 Config.RefreshIntervalMs = 2000
 
+-- Briefly tint a skill cell when its level increases since the last refresh.
+Config.LevelUpFlashColor    = { R = 1.0, G = 0.84, B = 0.0, A = 0.6 }
+Config.LevelUpFlashDurationMs = 1500
+
+-- Highlight maxed skills (level 99) in a different color, OSRS-style.
+Config.MaxLevel          = 99
+Config.MaxLevelColor     = { R = 1.0, G = 0.84, B = 0.0, A = 1.0 }
+
 return Config
