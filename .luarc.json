@@ -4,6 +4,9 @@
     "unusedLocalExclude": ["_*"],
     "globals": [
       "Key",
+      "ModifierKey",
+      "FName",
+      "LoopAsync",
       "RegisterKeyBind",
       "RegisterHook",
       "RegisterBeginPlayPostHook",

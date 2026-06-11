@@ -7,6 +7,9 @@ toggleable HUD overlay showing your skill levels (icon + level) without opening 
 
 - Press **F9** to toggle a skill panel showing every skill's icon, current level, and total level.
 - Skill levels refresh automatically every few seconds while the panel is visible.
+- While the panel is visible, hold **Ctrl** and the **arrow keys** to reposition it (hold to
+  repeat). The new position is saved to `Scripts/hud_position.txt` and restored on the next
+  launch.
 - Fully configurable via `Scripts/config.lua`: hotkey, panel position, font size, icon size,
   grid columns, padding, and colors.
 
@@ -57,6 +60,9 @@ Edit `Scripts/config.lua` to adjust:
 | `CellPadding` | Spacing between/around grid cells. |
 | `CellBackground` | Background color of each skill cell (RGBA, 0-1). |
 | `RefreshIntervalMs` | How often (in milliseconds) skill levels refresh while the panel is visible. |
+| `LevelUpFlashColor`, `LevelUpFlashDurationMs` | Tint and duration for the brief flash when a skill levels up. |
+| `MaxLevel`, `MaxLevelColor` | Level (default 99) at which a skill's level text is highlighted in a different color. |
+| `XpBarHeight`, `XpBarGap`, `XpBarColor`, `XpBarBackground` | Size, spacing, and colors of the XP progress bar shown under each skill icon. |
 
 ## Hot reloading
 

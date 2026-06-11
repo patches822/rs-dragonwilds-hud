@@ -32,7 +32,22 @@ local function getSkillComponent()
     return nil, "no SkillComponent"
 end
 
--- Returns a list of { name = "Mining", level = 12 } tables.
+-- Returns a 0..1 fraction of progress toward the next level, or nil if it
+-- can't be determined. A skill at (or beyond) the level cap is reported as
+-- fully complete (1.0).
+local function computeProgress(comp, sd, level)
+    local ok_total, totalXP = pcall(function() return comp:GetTotalXP(sd) end)
+    local ok_next, xpForNext = pcall(function() return comp:GetTotalXPNeededForNextLevel(sd) end)
+    local ok_cur, xpForCurrent = pcall(function() return comp:GetTotalXPNeededForLevel(level) end)
+    if not (ok_total and ok_next and ok_cur) then return nil end
+    if xpForNext <= xpForCurrent then return 1.0 end
+
+    local p = (totalXP - xpForCurrent) / (xpForNext - xpForCurrent)
+    if p < 0 then p = 0 elseif p > 1 then p = 1 end
+    return p
+end
+
+-- Returns a list of { name = "Mining", level = 12, progress = 0.42 } tables.
 function Skills.Fetch()
     local comp, err = getSkillComponent()
     if not comp then
@@ -73,7 +88,12 @@ function Skills.Fetch()
                 log("Skills.Fetch: GetSkillLevel failed for " .. tostring(display))
             end
 
-            results[#results + 1] = { name = display, level = lvl }
+            local progress = nil
+            if isValid(sd) and ok_lvl and lvl_result ~= nil then
+                progress = computeProgress(comp, sd, lvl_result)
+            end
+
+            results[#results + 1] = { name = display, level = lvl, progress = progress }
         end
     end
 

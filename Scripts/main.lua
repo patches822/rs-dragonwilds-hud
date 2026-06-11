@@ -4,10 +4,48 @@ local Skills            = require("skills")
 
 local visible           = false
 local refreshLoopActive = false
+local nudgeLoopActive   = false
 
 local function log(msg)
     print("[DragonwildsHUD] " .. msg .. "\n")
 end
+
+-- ---------------------------------------------------------------------------
+-- Panel position persistence (Ctrl+Arrow reposition, see bottom of file).
+-- ---------------------------------------------------------------------------
+local function getScriptDir()
+    local source = debug.getinfo(1, "S").source
+    source = source:match("^@(.*)$") or source
+    return source:match("^(.*)[/\\]")
+end
+
+local POSITION_FILE = getScriptDir() and (getScriptDir() .. "\\hud_position.txt")
+
+local function loadSavedPosition()
+    if not POSITION_FILE then return end
+    local f = io.open(POSITION_FILE, "r")
+    if not f then return end
+    local content = f:read("*a")
+    f:close()
+    local x, y = content:match("(-?%d+),(-?%d+)")
+    if x and y then
+        Config.HudX = tonumber(x)
+        Config.HudY = tonumber(y)
+    end
+end
+
+local function savePosition()
+    if not POSITION_FILE then return end
+    local f = io.open(POSITION_FILE, "w")
+    if not f then
+        log("savePosition: failed to open " .. POSITION_FILE)
+        return
+    end
+    f:write(tostring(Config.HudX) .. "," .. tostring(Config.HudY))
+    f:close()
+end
+
+loadSavedPosition()
 
 -- ---------------------------------------------------------------------------------------
 -- Custom UMG panel, built entirely from /Script/UMG C++ classes via StaticConstructObject
@@ -20,6 +58,7 @@ local panelCanvas = nil
 local panelBorder = nil
 local panelCells = nil
 local panelTotalText = nil
+local panelSlot = nil
 local panelIsPlaceholder = false -- true if current panel was built from placeholder skill data
 
 local function isValid(o)
@@ -58,6 +97,7 @@ local function teardownPanel()
     panelBorder = nil
     panelCells = nil
     panelTotalText = nil
+    panelSlot = nil
     panelIsPlaceholder = false
 end
 
@@ -131,8 +171,11 @@ local function ensurePanel()
         cellBg:SetBrushColor(Config.CellBackground)
         cellBg:SetPadding({ Left = 2, Top = 2, Right = 2, Bottom = 2 })
 
-        local hbox = StaticConstructObject(horizontal_box_cls, cellBg, FName("DragonwildsHUDCell" .. i .. "HBox"))
-        cellBg:SetContent(hbox)
+        local cellVBox = StaticConstructObject(vertical_box_cls, cellBg, FName("DragonwildsHUDCell" .. i .. "VBox"))
+        cellBg:SetContent(cellVBox)
+
+        local hbox = StaticConstructObject(horizontal_box_cls, cellVBox, FName("DragonwildsHUDCell" .. i .. "HBox"))
+        cellVBox:AddChildToVerticalBox(hbox)
 
         local sizeBox = StaticConstructObject(size_box_cls, hbox, FName("DragonwildsHUDCell" .. i .. "Size"))
         sizeBox:SetWidthOverride(Config.IconSize)
@@ -153,9 +196,39 @@ local function ensurePanel()
         levelText:SetText(FText(tostring(skill.level)))
         levelText:SetColorAndOpacity({ SpecifiedColor = levelTextColor(skill.level), ColorUseRule = 0 })
 
-        local levelSlot = hbox:AddChildToHorizontalBox(levelText)
+        -- Fixed-width wrapper so cells don't resize between 1- and 2-digit levels.
+        local levelSizeBox = StaticConstructObject(size_box_cls, hbox, FName("DragonwildsHUDCell" .. i .. "LevelSize"))
+        levelSizeBox:SetWidthOverride(Config.LevelTextWidth)
+        levelSizeBox:SetContent(levelText)
+
+        local levelSlot = hbox:AddChildToHorizontalBox(levelSizeBox)
         levelSlot:SetVerticalAlignment(VAlign_Center)
         levelSlot:SetPadding({ Left = Config.CellPadding, Top = 0, Right = 0, Bottom = 0 })
+
+        -- XP progress bar: a thin two-segment bar (filled + empty) spanning
+        -- the full cell width, sized via HorizontalBox fill weights.
+        local progress = tonumber(skill.progress) or 0
+
+        local xpRow = StaticConstructObject(horizontal_box_cls, cellVBox, FName("DragonwildsHUDCell" .. i .. "XpRow"))
+
+        local xpFillSize = StaticConstructObject(size_box_cls, xpRow, FName("DragonwildsHUDCell" .. i .. "XpFillSize"))
+        xpFillSize:SetHeightOverride(Config.XpBarHeight)
+        local xpFillBorder = StaticConstructObject(border_cls, xpFillSize, FName("DragonwildsHUDCell" .. i .. "XpFillBorder"))
+        xpFillBorder:SetBrushColor(Config.XpBarColor)
+        xpFillSize:SetContent(xpFillBorder)
+        local xpFillSlot = xpRow:AddChildToHorizontalBox(xpFillSize)
+        xpFillSlot:SetSize({ SizeRule = 1, Value = progress })
+
+        local xpEmptySize = StaticConstructObject(size_box_cls, xpRow, FName("DragonwildsHUDCell" .. i .. "XpEmptySize"))
+        xpEmptySize:SetHeightOverride(Config.XpBarHeight)
+        local xpEmptyBorder = StaticConstructObject(border_cls, xpEmptySize, FName("DragonwildsHUDCell" .. i .. "XpEmptyBorder"))
+        xpEmptyBorder:SetBrushColor(Config.XpBarBackground)
+        xpEmptySize:SetContent(xpEmptyBorder)
+        local xpEmptySlot = xpRow:AddChildToHorizontalBox(xpEmptySize)
+        xpEmptySlot:SetSize({ SizeRule = 1, Value = 1 - progress })
+
+        local xpRowSlot = cellVBox:AddChildToVerticalBox(xpRow)
+        xpRowSlot:SetPadding({ Left = 0, Top = Config.XpBarGap, Right = 0, Bottom = 0 })
 
         grid:AddChildToUniformGrid(cellBg, row, col)
 
@@ -165,6 +238,9 @@ local function ensurePanel()
             bg = cellBg,
             lastLevel = tonumber(skill.level),
             lastDisplayed = skill.level,
+            xpFillSlot = xpFillSlot,
+            xpEmptySlot = xpEmptySlot,
+            lastProgress = progress,
         }
     end
 
@@ -190,6 +266,7 @@ local function ensurePanel()
     panelBorder = border
     panelCells = cells
     panelTotalText = total
+    panelSlot = slot
     return true
 end
 
@@ -261,6 +338,17 @@ local function updatePanelData()
         else
             incomplete = true
         end
+
+        if cell and cell.xpFillSlot and cell.xpEmptySlot then
+            local progress = tonumber(skill.progress) or 0
+            if math.abs(progress - (cell.lastProgress or 0)) > 0.0005 then
+                pcall(function()
+                    cell.xpFillSlot:SetSize({ SizeRule = 1, Value = progress })
+                    cell.xpEmptySlot:SetSize({ SizeRule = 1, Value = 1 - progress })
+                end)
+                cell.lastProgress = progress
+            end
+        end
     end
 
     local totalLabel = "Total level: " .. tostring(total) .. (incomplete and "+" or "")
@@ -284,6 +372,62 @@ local function startRefreshLoop()
     end)
 end
 
+-- Move the panel by (dx, dy) pixels and persist the new position so it
+-- survives a restart.
+local function nudgePanel(dx, dy)
+    Config.HudX = Config.HudX + dx
+    Config.HudY = Config.HudY + dy
+    if isValid(panelSlot) then
+        pcall(function() panelSlot:SetPosition({ X = Config.HudX, Y = Config.HudY }) end)
+    end
+    savePosition()
+end
+
+-- Reposition: while Ctrl + an arrow key are held, repeatedly nudge the panel
+-- every tick so users can hold the keys instead of repeatedly pressing them.
+local CTRL_FKEYS = {
+    { KeyName = FName("LeftControl") },
+    { KeyName = FName("RightControl") },
+}
+local NUDGE_FKEYS = {
+    { key = { KeyName = FName("Left") },  dx = -1, dy = 0 },
+    { key = { KeyName = FName("Right") }, dx = 1,  dy = 0 },
+    { key = { KeyName = FName("Up") },    dx = 0,  dy = -1 },
+    { key = { KeyName = FName("Down") },  dx = 0,  dy = 1 },
+}
+local NUDGE_INTERVAL_MS = 60
+
+local function isAnyKeyDown(pc, fkeys)
+    for _, fkey in ipairs(fkeys) do
+        local ok, held = pcall(function() return pc:IsInputKeyDown(fkey) end)
+        if ok and held then return true end
+    end
+    return false
+end
+
+-- While the panel is visible, poll for Ctrl+Arrow being held and nudge the
+-- panel each tick. The loop self-terminates once the panel is hidden.
+local function startNudgeLoop()
+    if nudgeLoopActive or not LoopAsync then return end
+    nudgeLoopActive = true
+    LoopAsync(NUDGE_INTERVAL_MS, function()
+        if not visible then
+            nudgeLoopActive = false
+            return true
+        end
+        local ok_pc, pc = pcall(UEHelpers.GetPlayerController)
+        if ok_pc and isValid(pc) and pc.IsInputKeyDown and isAnyKeyDown(pc, CTRL_FKEYS) then
+            for _, nudge in ipairs(NUDGE_FKEYS) do
+                local ok, held = pcall(function() return pc:IsInputKeyDown(nudge.key) end)
+                if ok and held then
+                    nudgePanel(nudge.dx * Config.NudgeStep, nudge.dy * Config.NudgeStep)
+                end
+            end
+        end
+        return false
+    end)
+end
+
 -- ---------------------------------------------------------------------------
 -- Hotkey: F9 toggles the skill-level panel.
 -- ---------------------------------------------------------------------------
@@ -302,6 +446,7 @@ if not _G.__DragonwildsHUD_KeybindRegistered then
                 local ok, err = pcall(updatePanelData)
                 if not ok then log("F9 handler: updatePanelData failed: " .. tostring(err)) end
                 startRefreshLoop()
+                startNudgeLoop()
             end
             setPanelVisible(visible)
         end)
@@ -310,4 +455,4 @@ else
     log("RegisterKeyBind skipped: already registered (hot-reload)")
 end
 
-log("Loaded. F9 = toggle.")
+log("Loaded. F9 = toggle, Ctrl+Arrows = reposition while visible (hold to repeat).")
