@@ -2,6 +2,21 @@ local UEHelpers = require("UEHelpers")
 
 local Skills = {}
 
+local function log(msg)
+    print("[DragonwildsHUD] " .. msg .. "\n")
+end
+
+-- Sentinel marker for placeholder/error results, so callers can detect
+-- "no real skill data yet" and trigger a panel rebuild once real data
+-- becomes available.
+Skills.PLACEHOLDER = "placeholder"
+
+-- Returns true if `results` (the return value of Skills.Fetch()) is
+-- placeholder/error data rather than real skill data.
+function Skills.IsPlaceholder(results)
+    return results and results[1] and results[1].marker == Skills.PLACEHOLDER
+end
+
 local function isValid(o)
     return o and o.IsValid and o:IsValid()
 end
@@ -21,33 +36,49 @@ end
 function Skills.Fetch()
     local comp, err = getSkillComponent()
     if not comp then
-        return { { name = err or "no skill component", level = "?" } }
+        return { { name = err or "no skill component", level = "?", marker = Skills.PLACEHOLDER } }
     end
 
-    local skills = comp.Skills
+    local skills
+    local ok_skills = pcall(function() skills = comp.Skills end)
+    if not ok_skills or not skills then
+        log("Skills.Fetch: failed to read comp.Skills")
+        return { { name = "skills unavailable", level = "?", marker = Skills.PLACEHOLDER } }
+    end
+
     local n = 0
     pcall(function() n = #skills end)
 
     local results = {}
     for i = 1, n do
-        local entry = skills[i]
-        if entry then
-            local sd = entry.SkillData
+        local ok_entry, entry = pcall(function() return skills[i] end)
+        if ok_entry and entry then
+            local sd
+            local ok_sd = pcall(function() sd = entry.SkillData end)
+            if not ok_sd then sd = nil end
+
             local short = "?"
             if isValid(sd) then
                 local fn
                 pcall(function() fn = sd:GetFName():ToString() end)
                 if fn and fn ~= "" then short = fn end
             end
-            local lvl = 0
-            pcall(function() lvl = comp:GetSkillLevel(sd) end)
             local display = short:gsub("^SKILL_", "")
+
+            local lvl = "?"
+            local ok_lvl, lvl_result = pcall(function() return comp:GetSkillLevel(sd) end)
+            if ok_lvl and lvl_result ~= nil then
+                lvl = lvl_result
+            else
+                log("Skills.Fetch: GetSkillLevel failed for " .. tostring(display))
+            end
+
             results[#results + 1] = { name = display, level = lvl }
         end
     end
 
     if #results == 0 then
-        results[1] = { name = "No skills found", level = "?" }
+        results[1] = { name = "No skills found", level = "?", marker = Skills.PLACEHOLDER }
     end
     return results
 end

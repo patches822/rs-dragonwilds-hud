@@ -16,12 +16,11 @@ local Visibility_HIDDEN = 2
 local Visibility_SELF_HIT_TEST_INVISIBLE = 4
 local VAlign_Center = 2
 
-local INVALIDATE_LAYOUT_AND_PAINT = 3
-
 local panelCanvas = nil
 local panelBorder = nil
 local panelCells = nil
 local panelTotalText = nil
+local panelIsPlaceholder = false -- true if current panel was built from placeholder skill data
 
 local function isValid(o)
     return o and o.IsValid and o:IsValid()
@@ -31,11 +30,26 @@ local function setWidgetText(widget, text, label)
     if not isValid(widget) then return end
     local ok, err = pcall(function()
         widget:SetText(FText(text))
-        widget:Invalidate(INVALIDATE_LAYOUT_AND_PAINT)
     end)
     if not ok then
         log("setWidgetText: failed for " .. label .. ": " .. tostring(err))
     end
+end
+
+-- Remove the previously-constructed panel from the viewport so ensurePanel()
+-- can safely rebuild (used when transitioning from placeholder to real data).
+local function teardownPanel()
+    if isValid(panelBorder) then
+        pcall(function() panelBorder:RemoveFromParent() end)
+    end
+    if isValid(panelCanvas) then
+        pcall(function() panelCanvas:RemoveFromParent() end)
+    end
+    panelCanvas = nil
+    panelBorder = nil
+    panelCells = nil
+    panelTotalText = nil
+    panelIsPlaceholder = false
 end
 
 local function ensurePanel()
@@ -92,8 +106,15 @@ local function ensurePanel()
         Bottom = Config.CellPadding,
     }
 
+    local ok_fetch, skillsList = pcall(Skills.Fetch)
+    if not ok_fetch or not skillsList then
+        log("ensurePanel: Skills.Fetch failed: " .. tostring(skillsList))
+        skillsList = { { name = "error", level = "?", marker = Skills.PLACEHOLDER } }
+    end
+    panelIsPlaceholder = Skills.IsPlaceholder(skillsList)
+
     local cells = {}
-    for i, skill in ipairs(Skills.Fetch()) do
+    for i, skill in ipairs(skillsList) do
         local row = math.floor((i - 1) / Config.GridColumns)
         local col = (i - 1) % Config.GridColumns
 
@@ -157,22 +178,6 @@ local function ensurePanel()
     return true
 end
 
-local function updatePanelData()
-    if not panelCells then return end
-
-    local total = 0
-    for i, skill in ipairs(Skills.Fetch()) do
-        local cell = panelCells[i]
-        if cell then
-            setWidgetText(cell.levelText, tostring(skill.level), cell.name)
-        end
-        local n = tonumber(skill.level)
-        if n then total = total + n end
-    end
-
-    setWidgetText(panelTotalText, "Total level: " .. tostring(total), "Total")
-end
-
 local function setPanelVisible(show)
     if not isValid(panelCanvas) then return end
     local vis = show and Visibility_SELF_HIT_TEST_INVISIBLE or Visibility_HIDDEN
@@ -180,6 +185,47 @@ local function setPanelVisible(show)
     if isValid(panelBorder) then
         pcall(function() panelBorder:SetVisibility(vis) end)
     end
+end
+
+local function updatePanelData()
+    if not panelCells then return end
+
+    local ok_fetch, skillsList = pcall(Skills.Fetch)
+    if not ok_fetch or not skillsList then
+        log("updatePanelData: Skills.Fetch failed: " .. tostring(skillsList))
+        return
+    end
+
+    -- If the panel was built from placeholder data but real data is now
+    -- available, tear down and rebuild the panel so the grid is sized
+    -- correctly.
+    if panelIsPlaceholder and not Skills.IsPlaceholder(skillsList) then
+        log("updatePanelData: real skill data now available, rebuilding panel")
+        teardownPanel()
+        if not ensurePanel() then
+            log("updatePanelData: rebuild failed")
+            return
+        end
+        setPanelVisible(visible)
+    end
+
+    local total = 0
+    local incomplete = false
+    for i, skill in ipairs(skillsList) do
+        local cell = panelCells[i]
+        if cell then
+            setWidgetText(cell.levelText, tostring(skill.level), cell.name)
+        end
+        local n = tonumber(skill.level)
+        if n then
+            total = total + n
+        else
+            incomplete = true
+        end
+    end
+
+    local totalLabel = "Total level: " .. tostring(total) .. (incomplete and "+" or "")
+    setWidgetText(panelTotalText, totalLabel, "Total")
 end
 
 -- While the panel is visible, periodically refresh the displayed skill
@@ -202,19 +248,27 @@ end
 -- ---------------------------------------------------------------------------
 -- Hotkey: F9 toggles the skill-level panel.
 -- ---------------------------------------------------------------------------
-RegisterKeyBind(Config.HotkeyToggle, function()
-    ExecuteInGameThread(function()
-        visible = not visible
-        if not ensurePanel() then
-            log("ensurePanel failed — aborting")
-            return
-        end
-        if visible then
-            updatePanelData()
-            startRefreshLoop()
-        end
-        setPanelVisible(visible)
+-- Reload guard: RegisterKeyBind has no "unregister" API, so on hot-reload
+-- avoid stacking a second toggle handler for the same hotkey.
+if not _G.__DragonwildsHUD_KeybindRegistered then
+    _G.__DragonwildsHUD_KeybindRegistered = true
+    RegisterKeyBind(Config.HotkeyToggle, function()
+        ExecuteInGameThread(function()
+            visible = not visible
+            if not ensurePanel() then
+                log("ensurePanel failed — aborting")
+                return
+            end
+            if visible then
+                local ok, err = pcall(updatePanelData)
+                if not ok then log("F9 handler: updatePanelData failed: " .. tostring(err)) end
+                startRefreshLoop()
+            end
+            setPanelVisible(visible)
+        end)
     end)
-end)
+else
+    log("RegisterKeyBind skipped: already registered (hot-reload)")
+end
 
 log("Loaded. F9 = toggle.")
