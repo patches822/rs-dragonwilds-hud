@@ -38,6 +38,9 @@ Config.LevelUpFlashDurationMs = 1500
 Config.MaxLevel               = 99
 Config.MaxLevelColor          = { R = 1.0, G = 0.84, B = 0.0, A = 1.0 }
 
+-- Show the "Total level: N" footer beneath the skill grid.
+Config.ShowTotalLevel         = false
+
 -- XP progress bar shown under each skill icon.
 Config.XpBarHeight            = 3
 Config.XpBarGap               = 2

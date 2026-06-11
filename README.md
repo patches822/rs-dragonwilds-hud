@@ -60,6 +60,7 @@ Edit `Scripts/config.lua` to adjust:
 | `CellPadding` | Spacing between/around grid cells. |
 | `CellBackground` | Background color of each skill cell (RGBA, 0-1). |
 | `RefreshIntervalMs` | How often (in milliseconds) skill levels refresh while the panel is visible. |
+| `ShowTotalLevel` | Whether to show the "Total level: N" footer beneath the skill grid. |
 | `LevelUpFlashColor`, `LevelUpFlashDurationMs` | Tint and duration for the brief flash when a skill levels up. |
 | `MaxLevel`, `MaxLevelColor` | Level (default 99) at which a skill's level text is highlighted in a different color. |
 | `XpBarHeight`, `XpBarGap`, `XpBarColor`, `XpBarBackground` | Size, spacing, and colors of the XP progress bar shown under each skill icon. |

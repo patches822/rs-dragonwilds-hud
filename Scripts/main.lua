@@ -244,12 +244,15 @@ local function ensurePanel()
         }
     end
 
-    -- Total level footer.
-    local total = StaticConstructObject(text_block_cls, vbox, FName("DragonwildsHUDTotal"))
-    total.Font.Size = Config.FontSize
-    total:SetColorAndOpacity({ SpecifiedColor = Config.TextColor, ColorUseRule = 0 })
-    local total_slot = vbox:AddChildToVerticalBox(total)
-    total_slot:SetPadding({ Left = 0, Top = Config.CellPadding * 2, Right = 0, Bottom = 0 })
+    -- Total level footer (optional).
+    local total = nil
+    if Config.ShowTotalLevel then
+        total = StaticConstructObject(text_block_cls, vbox, FName("DragonwildsHUDTotal"))
+        total.Font.Size = Config.FontSize
+        total:SetColorAndOpacity({ SpecifiedColor = Config.TextColor, ColorUseRule = 0 })
+        local total_slot = vbox:AddChildToVerticalBox(total)
+        total_slot:SetPadding({ Left = 0, Top = Config.CellPadding * 2, Right = 0, Bottom = 0 })
+    end
 
     local slot = canvas:AddChildToCanvas(border)
     slot:SetAutoSize(true)
