@@ -7,6 +7,8 @@ toggleable HUD overlay showing your skill levels (icon + level) without opening 
 
 - Press **F9** to toggle a skill panel showing every skill's icon, current level, and total level.
 - Skill levels refresh automatically every few seconds while the panel is visible.
+- Each skill icon has a thin XP progress bar showing progress toward the next level.
+- A skill cell briefly flashes gold when that skill levels up.
 - While the panel is visible, hold **Ctrl** and the **arrow keys** to reposition it (hold to
   repeat). The new position is saved to `Scripts/hud_position.txt` and restored on the next
   launch.
